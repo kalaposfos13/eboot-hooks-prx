@@ -24,6 +24,13 @@ bool eboot_hook(u64 base_addr) {
     return true;
 }
 
-extern "C" void _start() {
+extern "C" int __wrap__init() {
+    LOG_INFO("called");
     eboot_hook(0x800000000); // hardcoded shadPS4 base
+    return 0;
+}
+
+extern "C" void _start() {
+    LOG_INFO("called"); // will never be called probably, the compiler just complains if this isn't here
+    return;
 }

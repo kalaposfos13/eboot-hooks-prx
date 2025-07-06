@@ -42,7 +42,7 @@ $(INTDIR)/%.o: %.c
 	clang $(CFLAGS) -c $< -o $@
 
 $(OUTPUT_ELF): $(OBJ)
-	ld.lld -m elf_x86_64 $(LDFLAGS) $(LIBS) "$(OO_TOOLCHAIN)/lib/crtlib.o" $^ -o $@
+	ld.lld -m elf_x86_64 $(LDFLAGS) $(LIBS) "$(OO_TOOLCHAIN)/lib/crtlib.o" $^ -o $@ --wrap=_init
 
 $(INTDIR)/%.o.stub: %.c | $(INTDIR)
 	clang -target $(STUB_TARGET) $(STUBFLAGS) -I"$(OO_TOOLCHAIN)/include" -Isrc -c $< -o $@
