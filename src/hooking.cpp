@@ -11,6 +11,7 @@ HOOK_INIT(SearchFlagInGlobalArgv);
 
 bool SearchFlagInGlobalArgv(char* flag) {
     LOG_WARNING("Checked flag: {}", flag);
+    return false;
     bool ret = CONTINUE(SearchFlagInGlobalArgv, bool (*)(char*), flag);
     LOG_INFO("return: {}", ret);
     return ret;
