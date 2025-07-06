@@ -5,12 +5,7 @@
 
 #include "common/types.h"
 
-typedef bool(*HookFun)(u64);
-
-struct hook_t {
-    const char* library_name;
-    HookFun func;
-};
+#define HOOK_FUNC __attribute__((noinline)) __attribute__((sysv_abi))
 
 #define HOOK_INIT_VAL(name) info_##name
 #define HOOK_INIT(name) HookInformation info_##name;
