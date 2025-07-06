@@ -1,0 +1,34 @@
+name: Build PRX
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y cmake ninja-build clang lld
+
+    - name: Download and extract OpenOrbis Toolchain
+      run: |
+        curl -L -o toolchain.zip https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.3/toolchain-llvm-18.2.zip
+        unzip toolchain.zip
+        tar -xf toolchain-llvm-18.tar.gz
+        echo "${{ github.workspace }}/OpenOrbis/PS4Toolchain/bin" >> $GITHUB_PATH
+        echo "OO_PS4_TOOLCHAIN=${{ github.workspace }}/OpenOrbis/PS4Toolchain" >> $GITHUB_ENV
+
+    - name: Build PRX
+      run: make all
+
+    - name: Upload PRX artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: libSceFios2
+        path: libSceFios2.prx

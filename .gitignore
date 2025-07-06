@@ -1,0 +1,5 @@
+*.so
+*.prx
+build
+.vscode
+.vs
