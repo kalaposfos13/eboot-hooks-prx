@@ -239,7 +239,7 @@ static void* PlatformAllocate(const unsigned long long size) {
 #endif
 #else
 #ifdef __linux__
-    return mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+    return mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 #endif
     (void)size;
     return 0;
