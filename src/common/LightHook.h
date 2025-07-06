@@ -185,6 +185,14 @@ static HookInformation CreateHook(void* originalFunction, void* targetFunction) 
     return information;
 }
 
+// define Linux so that is used, otherwise whole functions will be just empty, hopefully it's close
+// enough that it will still work
+#ifndef __linux__
+#define __linux__ 1
+#endif
+
+#include "common/types.h"
+
 #ifdef _WIN64
 #ifdef _KERNEL_MODE
 #ifndef _EFI
@@ -313,9 +321,15 @@ static unsigned long long PlatformProtect(void* address, unsigned long long size
             PROT_READ |
             PROT_EXEC; // unfortunately no way to read the original without parsing /proc/self/maps
 
-    int pageSize = getpagesize();
+    // the page size on the PS4 is 16 KB.
+    // I could have replaced the original with a libkernel posix_getpagesize export, however that
+    // would have required me to add that manually which would make this template repo not very
+    // user-friendly as it'd require everyone to modify their SDK the same way too. I might make a
+    // PR just for this on the OperOrbis repo though sometime
+    int pageSize = 16_KB; /* = getpagesize(); */
     unsigned long long pageOffset = (unsigned long long)address % pageSize;
-    address -= pageOffset;
+    // C++ doesn't like pointer arithmetic on void*, but it's no issue as it's trivial to fix
+    address = (void*)((u8*)address - pageOffset);
 
     int status = mprotect(address, pageSize, protection);
     assert(status == 0);
