@@ -1,20 +1,29 @@
 // SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/LightHook.h"
 #include "common/assert.h"
 #include "common/logging.h"
 #include "common/types.h"
+#include "hooking.h"
 
-#include <mutex>
-#include <string>
-#include <thread>
-#include <unordered_map>
-#include <vector>
-#include <fcntl.h>
+HOOK_INIT(SearchFlagInGlobalArgv);
 
-#include <orbis/libkernel.h>
+bool SearchFlagInGlobalArgv(char* flag) {
+    LOG_WARNING("Checked flag: {}", flag);
+    bool ret = CONTINUE(SearchFlagInGlobalArgv, bool (*)(char*), flag);
+    LOG_INFO("return: {}", ret);
+    return ret;
+}
+
+bool eboot_hook(u64 base_addr) {
+    LOG_INFO("Hooking eboot functions");
+
+    HOOK(0x00557830 - 0x00400000, SearchFlagInGlobalArgv);
+
+    return true;
+}
 
 extern "C" void _start() {
-    fmt::print("Hello World!\n");
-    return;
+    eboot_hook(0x800000000); // hardcoded shadPS4 base
 }
