@@ -1,14 +1,14 @@
 OO_TOOLCHAIN ?= $(OO_PS4_TOOLCHAIN)
-GH_SDK       := $(GOLDHEN_SDK)
+GH_SDK       ?= $(GOLDHEN_SDK)
 TARGET      ?= hook_example
 INTDIR      ?= build
 OUTDIR      ?= out
 ROOT := .
 
-CFLAGS   = -fPIC -funwind-tables --target=x86_64-pc-freebsd12-elf -I"$(OO_TOOLCHAIN)/include" -Isrc -I$(GH_SDK)/include
+CFLAGS   = -fPIC -funwind-tables --target=x86_64-pc-freebsd12-elf -I"$(OO_TOOLCHAIN)/include" -Isrc -I"$(GH_SDK)/include"
 CXXFLAGS = $(CFLAGS) -I"$(OO_TOOLCHAIN)/include/c++/v1"
-LDFLAGS  = -pie --script "$(OO_TOOLCHAIN)/link.x" --eh-frame-hdr -L"$(OO_TOOLCHAIN)/lib"
-LIBS     = -lc -lkernel -lc++
+LDFLAGS  = -pie --script "$(OO_TOOLCHAIN)/link.x" --eh-frame-hdr -L"$(OO_TOOLCHAIN)/lib" -L$(GH_SDK) $(LIBS) 
+LIBS     = -lc -lkernel -lc++ -lSceSysmodule -lGoldHEN_Hook
 
 STUBFLAGS = -ffreestanding -nostdlib -fno-builtin -fPIC
 STUB_TARGET = x86_64-pc-linux-gnu
@@ -49,10 +49,10 @@ $(INTDIR)/%.o.stub: %.c | $(INTDIR)
 	clang -target $(STUB_TARGET) $(STUBFLAGS) -I"$(OO_TOOLCHAIN)/include" -Isrc -c $< -o $@
 
 $(INTDIR)/%.o.stub: %.cpp | $(INTDIR)
-	clang++ -target $(STUB_TARGET) $(STUBFLAGS) -I"$(OO_TOOLCHAIN)/include" -I"$(OO_TOOLCHAIN)/include/c++/v1" -Isrc -c $< -o $@
+	clang++ -target $(STUB_TARGET) $(STUBFLAGS) -I"$(OO_TOOLCHAIN)/include" -I"$(GH_SDK)/include" -I"$(OO_TOOLCHAIN)/include/c++/v1" -Isrc -c $< -o $@
 
 $(OUTPUT_STUB): $(STUBOBJ)
-	clang++ -target $(STUB_TARGET) -shared -fuse-ld=lld $(STUBFLAGS) -L"$(OO_TOOLCHAIN)/lib" $(LIBS) $^ -o $@
+	clang++ -target $(STUB_TARGET) -shared -fuse-ld=lld $(STUBFLAGS) -L"$(OO_TOOLCHAIN)/lib" -L"$(GH_SDK)" -I"$(GH_SDK)/include" $(LIBS) $^ -o $@
 
 $(OUTPUT_PRX): $(OUTPUT_ELF) $(OUTPUT_STUB)
 	"$(OO_TOOLCHAIN)/bin/linux/create-fself" -in "$(OUTPUT_ELF)" --out "$(OUTPUT_OELF)" --lib "$(OUTPUT_PRX)" --paid 0x3800000000000011
