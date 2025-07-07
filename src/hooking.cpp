@@ -30,7 +30,11 @@ bool eboot_hook(u64 base_addr) {
 
 extern "C" int __wrap__init() {
     LOG_INFO("called");
-    if (!eboot_hook(0x800000000)) {
+    OrbisKernelModuleInfo* module_info = new OrbisKernelModuleInfo();
+    module_info->size = sizeof(OrbisKernelModuleInfo);
+    sceKernelGetModuleInfo(0, module_info);
+    LOG_INFO("Module 0 base address: {}", module_info->segmentInfo[0].address);
+    if (!eboot_hook((u64)module_info->segmentInfo[0].address)) {
         LOG_ERROR("Something went wrong with hooking setup!");
     }
     return 0;
