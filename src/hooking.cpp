@@ -28,7 +28,11 @@ bool eboot_hook(u64 base_addr) {
     return true;
 }
 
-extern "C" int __wrap__init() {
+extern "C" void sceSysUtilSendSystemNotificationWithText(int type, const char* message);
+
+extern "C" int32_t __wrap__init(size_t, void*) {
+    sceSysUtilSendSystemNotificationWithText(222, "_init(...) called!");
+
     LOG_INFO("called");
     OrbisKernelModuleInfo* module_info = new OrbisKernelModuleInfo();
     module_info->size = sizeof(OrbisKernelModuleInfo);
@@ -37,33 +41,6 @@ extern "C" int __wrap__init() {
     if (!eboot_hook((u64)module_info->segmentInfo[0].address)) {
         LOG_ERROR("Something went wrong with hooking setup!");
     }
-    return 0;
-}
 
-// will never be called probably, the compiler just complains if this isn't here
-extern "C" void _start() {
-    LOG_INFO("called");
-    return;
-}
-extern "C" {
-
-s32 attr_public plugin_load(s32 argc, const char* argv[]) {
-    LOG_INFO("called");
     return 0;
-}
-
-s32 attr_public plugin_unload(s32 argc, const char* argv[]) {
-    LOG_INFO("called");
-    return 0;
-}
-
-s32 attr_module_hidden module_start(s64 argc, const void* args) {
-    LOG_INFO("called");
-    return 0;
-}
-
-s32 attr_module_hidden module_stop(s64 argc, const void* args) {
-    LOG_INFO("called");
-    return 0;
-}
 }

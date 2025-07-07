@@ -1,65 +1,63 @@
-OO_TOOLCHAIN ?= $(OO_PS4_TOOLCHAIN)
-GH_SDK       ?= $(GOLDHEN_SDK)
-TARGET      ?= hook_example
-INTDIR      ?= build
-OUTDIR      ?= out
-ROOT := .
+TOOLCHAIN := $(OO_PS4_TOOLCHAIN)
+PROJDIR := src
+INTDIR := build
+TARGET := hook_example.prx
 
-CFLAGS   = -fPIC -funwind-tables --target=x86_64-pc-freebsd12-elf -I"$(OO_TOOLCHAIN)/include" -Isrc -I"$(GH_SDK)/include"
-CXXFLAGS = $(CFLAGS) -I"$(OO_TOOLCHAIN)/include/c++/v1"
-LDFLAGS  = -pie --script "$(OO_TOOLCHAIN)/link.x" --eh-frame-hdr -L"$(OO_TOOLCHAIN)/lib" -L$(GH_SDK) $(LIBS) 
-LIBS     = -lc -lkernel -lc++ -lSceSysmodule -lGoldHEN_Hook
+LIBS:= -lc -lc++ -lz -lkernel -lSceLibcInternal \
+       -lSceSysUtil -lSceSysmodule -lGoldHEN_Hook
+				 
+CFILES := $(wildcard $(PROJDIR)/*.c)
+CPPFILES := $(wildcard $(PROJDIR)/*.cpp)
+OBJS := $(patsubst $(PROJDIR)/%.c,$(INTDIR)/%.o,$(CFILES)) \
+        $(patsubst $(PROJDIR)/%.cpp,$(INTDIR)/%.o,$(CPPFILES))
 
-STUBFLAGS = -ffreestanding -nostdlib -fno-builtin -fPIC
-STUB_TARGET = x86_64-pc-linux-gnu
+CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -c \
+          -isysroot $(TOOLCHAIN) -isystem $(TOOLCHAIN)/include \
+          -Iinclude -Isrc -std=c20 -D_DEFAULT_SOURCE -DFMT_HEADER_ONLY
 
-SRC_CPP := $(shell find src -name "*.cpp")
-SRC_C   := $(shell find src -name "*.c")
+CXXFLAGS := $(CFLAGS) -isystem $(TOOLCHAIN)/include/c++/v1 \
+            -std=c++20 -Iinclude -Isrc -DFMT_HEADER_ONLY
 
-OBJ     := $(patsubst %.cpp,$(INTDIR)/%.o,$(SRC_CPP)) \
-           $(patsubst %.c,$(INTDIR)/%.o,$(SRC_C))
+LDFLAGS := -m elf_x86_64 -pie --script $(TOOLCHAIN)/link.x --eh-frame-hdr \
+          -L$(TOOLCHAIN)/lib $(LIBS) $(TOOLCHAIN)/lib/crtlib.o --wrap=_init
 
-STUBOBJ := $(patsubst %.cpp,$(INTDIR)/%.o.stub,$(SRC_CPP)) \
-           $(patsubst %.c,$(INTDIR)/%.o.stub,$(SRC_C))
+UNAME_S := $(shell uname -s)
 
-OUTPUT_ELF  := $(INTDIR)/$(TARGET).elf
-OUTPUT_OELF := $(INTDIR)/$(TARGET).oelf
-OUTPUT_PRX  := $(TARGET).prx
-OUTPUT_STUB := $(TARGET)_stub.so
+ifeq ($(UNAME_S),Linux)
+	CC := clang
+	CCX := clang++
+	LD := ld.lld
+	CDIR := linux
+endif
 
-.PHONY: all clean copy
+ifeq ($(UNAME_S),Darwin)
+	CC := /usr/local/opt/llvm/bin/clang
+	CCX := /usr/local/opt/llvm/bin/clang++
+	LD := /usr/local/opt/llvm/bin/ld.lld
+	CDIR := macos
+endif
 
-all: $(OUTPUT_PRX)
+$(TARGET): $(INTDIR) $(OBJS)
+	$(LD) $(OBJS) -o $(INTDIR)/$(PROJDIR).elf $(LDFLAGS) -e _init
+	$(TOOLCHAIN)/bin/$(CDIR)/create-fself -in=$(INTDIR)/$(PROJDIR).elf \
+		-out=$(INTDIR)/$(PROJDIR).oelf --lib=$(TARGET) --paid 0x3800000000000011
+
+$(INTDIR)/%.o: $(PROJDIR)/%.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(INTDIR)/%.o: $(PROJDIR)/%.cpp
+	$(CCX) $(CXXFLAGS) -o $@ $<
 
 $(INTDIR):
 	mkdir -p $(INTDIR)
 
-$(INTDIR)/%.o: %.cpp
-	mkdir -p $(dir $@)
-	clang++ $(CXXFLAGS) -c $< -o $@
+.PHONY: clean all target
 
-$(INTDIR)/%.o: %.c
-	mkdir -p $(dir $@)
-	clang $(CFLAGS) -c $< -o $@
-
-$(OUTPUT_ELF): $(OBJ)
-	ld.lld -m elf_x86_64 $(LDFLAGS) -L$(GH_SDK) $(LIBS) "$(GH_SDK)/build/crtprx.o" $^ -o $@ --wrap=_init
-
-$(INTDIR)/%.o.stub: %.c | $(INTDIR)
-	clang -target $(STUB_TARGET) $(STUBFLAGS) -I"$(OO_TOOLCHAIN)/include" -Isrc -c $< -o $@
-
-$(INTDIR)/%.o.stub: %.cpp | $(INTDIR)
-	clang++ -target $(STUB_TARGET) $(STUBFLAGS) -I"$(OO_TOOLCHAIN)/include" -I"$(GH_SDK)/include" -I"$(OO_TOOLCHAIN)/include/c++/v1" -Isrc -c $< -o $@
-
-$(OUTPUT_STUB): $(STUBOBJ)
-	clang++ -target $(STUB_TARGET) -shared -fuse-ld=lld $(STUBFLAGS) -L"$(OO_TOOLCHAIN)/lib" -L"$(GH_SDK)" -I"$(GH_SDK)/include" $(LIBS) $^ -o $@
-
-$(OUTPUT_PRX): $(OUTPUT_ELF) $(OUTPUT_STUB)
-	"$(OO_TOOLCHAIN)/bin/linux/create-fself" -in "$(OUTPUT_ELF)" --out "$(OUTPUT_OELF)" --lib "$(OUTPUT_PRX)" --paid 0x3800000000000011
-
-copy:
-	cp $(OUTPUT_PRX) $(OUTDIR)/
-	cp $(OUTPUT_STUB) $(OUTDIR)/
+.DEFAULT_GOAL := all
 
 clean:
-	rm -rf $(INTDIR) $(OUTPUT_PRX) $(OUTPUT_STUB)
+	rm -f $(INTDIR)/$(PROJDIR).oelf $(OBJS) $(TARGET) $(INTDIR)/$(PROJDIR).elf
+
+target: $(TARGET)
+
+all: target
