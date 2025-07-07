@@ -3,8 +3,7 @@ PROJDIR := src
 INTDIR := build
 TARGET := hook_example.prx
 
-LIBS:= -lc -lc++ -lz -lkernel -lSceLibcInternal \
-       -lSceSysUtil -lSceSysmodule -lGoldHEN_Hook
+LIBS:= -lc -lc++ -lkernel -lSceLibcInternal -lSceSysUtil -lSceSysmodule
 				 
 CFILES := $(wildcard $(PROJDIR)/*.c)
 CPPFILES := $(wildcard $(PROJDIR)/*.cpp)
