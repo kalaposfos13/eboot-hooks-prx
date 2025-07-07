@@ -1,10 +1,11 @@
 OO_TOOLCHAIN ?= $(OO_PS4_TOOLCHAIN)
+GH_SDK       := $(GOLDHEN_SDK)
 TARGET      ?= hook_example
 INTDIR      ?= build
 OUTDIR      ?= out
 ROOT := .
 
-CFLAGS   = -fPIC -funwind-tables --target=x86_64-pc-freebsd12-elf -I"$(OO_TOOLCHAIN)/include" -Isrc
+CFLAGS   = -fPIC -funwind-tables --target=x86_64-pc-freebsd12-elf -I"$(OO_TOOLCHAIN)/include" -Isrc -I$(GH_SDK)/include
 CXXFLAGS = $(CFLAGS) -I"$(OO_TOOLCHAIN)/include/c++/v1"
 LDFLAGS  = -pie --script "$(OO_TOOLCHAIN)/link.x" --eh-frame-hdr -L"$(OO_TOOLCHAIN)/lib"
 LIBS     = -lc -lkernel -lc++
@@ -42,7 +43,7 @@ $(INTDIR)/%.o: %.c
 	clang $(CFLAGS) -c $< -o $@
 
 $(OUTPUT_ELF): $(OBJ)
-	ld.lld -m elf_x86_64 $(LDFLAGS) $(LIBS) "$(OO_TOOLCHAIN)/lib/crtlib.o" $^ -o $@ --wrap=_init
+	ld.lld -m elf_x86_64 $(LDFLAGS) -L$(GH_SDK) $(LIBS) "$(GH_SDK)/build/crtprx.o" $^ -o $@ --wrap=_init
 
 $(INTDIR)/%.o.stub: %.c | $(INTDIR)
 	clang -target $(STUB_TARGET) $(STUBFLAGS) -I"$(OO_TOOLCHAIN)/include" -Isrc -c $< -o $@

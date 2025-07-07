@@ -45,3 +45,25 @@ extern "C" void _start() {
     LOG_INFO("called");
     return;
 }
+extern "C" {
+
+s32 attr_public plugin_load(s32 argc, const char* argv[]) {
+    LOG_INFO("called");
+    return 0;
+}
+
+s32 attr_public plugin_unload(s32 argc, const char* argv[]) {
+    LOG_INFO("called");
+    return 0;
+}
+
+s32 attr_module_hidden module_start(s64 argc, const void* args) {
+    LOG_INFO("called");
+    return 0;
+}
+
+s32 attr_module_hidden module_stop(s64 argc, const void* args) {
+    LOG_INFO("called");
+    return 0;
+}
+}

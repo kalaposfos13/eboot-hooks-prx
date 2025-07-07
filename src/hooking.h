@@ -8,6 +8,9 @@
 
 #define HOOK_FUNC __attribute__((noinline)) __attribute__((sysv_abi))
 
+#define attr_module_hidden __attribute__((weak)) __attribute__((visibility("hidden")))
+#define attr_public __attribute__((visibility("default")))
+
 #define HOOK_INIT_VAL(name) info_##name
 #define HOOK_INIT(name) HookInformation info_##name;
 #define HOOK(addr, name) \
