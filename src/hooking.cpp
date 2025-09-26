@@ -13,6 +13,8 @@ HOOK_INIT(HookableFunction)
 
 int HOOK_FUNC HookableFunction(int a) {
     LOG_INFO("Successfully hooked function, a: {}, returning 13", a);
+    int ret = CONTINUE(HookableFunction, int(*)(int), a);
+    LOG_INFO("Original return: {}", ret);
     return 13;
 }
 
