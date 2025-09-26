@@ -9,21 +9,17 @@
 
 #include "orbis/libkernel.h"
 
-HOOK_INIT(SearchFlagInGlobalArgv);
+HOOK_INIT(HookableFunction)
 
-bool HOOK_FUNC SearchFlagInGlobalArgv(char* flag) {
-    LOG_WARNING("Checked flag: {}", flag);
-
-    bool ret = CONTINUE(SearchFlagInGlobalArgv, bool (*)(char*), flag);
-
-    LOG_INFO("return: {}", ret);
-    return ret;
+int HOOK_FUNC HookableFunction(int a) {
+    LOG_INFO("Successfully hooked function, a: {}, returning 13", a);
+    return 13;
 }
 
 bool eboot_hook(u64 base_addr) {
     LOG_INFO("Hooking eboot functions");
 
-    HOOK(0x00557830 - 0x00400000, SearchFlagInGlobalArgv);
+    HOOK(0x00420500 - 0x00400000, HookableFunction);
 
     return true;
 }
