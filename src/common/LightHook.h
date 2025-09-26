@@ -1,6 +1,8 @@
 #ifndef LIGHT_HOOK
 #define LIGHT_HOOK
 
+#define USE_DMEM 0
+
 /*
  * LightHook
  * webpage: https://tulach.cc
@@ -192,29 +194,14 @@ static HookInformation CreateHook(void* originalFunction, void* targetFunction) 
 #endif
 
 #include "common/types.h"
+#include "common/logging.h"
+#include "common/assert.h"
+#include "orbis/libkernel.h"
 
-#ifdef _WIN64
-#ifdef _KERNEL_MODE
-#ifndef _EFI
-#include <intrin.h>
-#include <ntifs.h>
-#endif
-#else
-#define WIN32_NO_STATUS
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#undef LHCopyMemory
-#endif
-#endif
 #ifdef __linux__
-#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <sys/mman.h>
-#endif
-#ifdef _EFI
-#include <efi.h>
-#include <efilib.h>
 #endif
 
 /**
@@ -222,27 +209,19 @@ static HookInformation CreateHook(void* originalFunction, void* targetFunction) 
  * \param size Size in bytes
  * \return Pointer to allocated memory region
  */
-static void* PlatformAllocate(const unsigned long long size) {
-#ifdef _EFI
-    const unsigned long long numberOfPages = 1 + size / 1024;
-    EFI_PHYSICAL_ADDRESS physicalAddress;
-    gBS->AllocatePages(AllocateAnyPages, EfiRuntimeServicesCode, numberOfPages, &physicalAddress);
-    return (void*)physicalAddress;
-#endif
-#ifdef _WIN64
-#ifdef _KERNEL_MODE
-#ifndef _EFI
-    return ExAllocatePool(NonPagedPoolExecute, size);
-#endif
+static void* PlatformAllocate(const u64 size) {
+#if USE_DMEM
+    s64 p_addr = 0, *v_addr = nullptr;
+    u64 mod = size % 16_KB;
+    u64 aligned_size = size - mod + ((mod == 0) ? 0 : 16_KB);
+    ASSERT(sceKernelAllocateDirectMemory(0, sceKernelGetDirectMemorySize(), aligned_size, 16_KB, 0,
+                                         &p_addr) == 0);
+    sceKernelMapNamedDirectMemory((void**)&v_addr, aligned_size, 0x02, 0, p_addr, 16_KB, "hook");
+
+    LOG_INFO("PlatformAllocate returned physical address {}, virtual address {}", p_addr, fmt::ptr(v_addr));
+    return (void*)v_addr;
 #else
-    return VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
-#endif
-#else
-#ifdef __linux__
     return mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-#endif
-    (void)size;
-    return 0;
 #endif
 }
 
@@ -252,24 +231,7 @@ static void* PlatformAllocate(const unsigned long long size) {
  * \param size Size in bytes
  */
 static void PlatformFree(void* address, const unsigned long long size) {
-#ifdef _EFI
-    const unsigned long long numberOfPages = 1 + size / 1024;
-    gBS->FreePages((EFI_PHYSICAL_ADDRESS)address, numberOfPages);
-    return;
-#endif
-#ifdef _WIN64
-#ifdef _KERNEL_MODE
-#ifndef _EFI
-    (void)size;
-    ExFreePool(address);
-#endif
-#else
-    VirtualFree(address, size, MEM_RELEASE);
-#endif
-#ifdef __linux__
-    munmap(address, size);
-#endif
-#endif
+    ASSERT(sceKernelMunmap(address, size));
 }
 
 #define PROTECTION_READ_WRITE_EXECUTE 0xfffffffffffe
@@ -285,34 +247,6 @@ static void PlatformFree(void* address, const unsigned long long size) {
  */
 static unsigned long long PlatformProtect(void* address, unsigned long long size,
                                           unsigned long long protection) {
-#ifdef _WIN64
-#ifdef _KERNEL_MODE
-    (void)size;
-    (void)address;
-    if (protection == PROTECTION_READ_WRITE_EXECUTE) {
-        _disable();
-
-        unsigned long long cr0 = __readcr0();
-        unsigned long long originalCr0 = cr0;
-        cr0 &= ~(1UL << 16);
-        __writecr0(cr0);
-
-        return originalCr0;
-    } else {
-        __writecr0(protection);
-        _enable();
-        return 0;
-    }
-#else
-    if (protection == PROTECTION_READ_WRITE_EXECUTE)
-        protection = PAGE_EXECUTE_READWRITE;
-
-    unsigned long original;
-    VirtualProtect(address, size, (unsigned long)protection, &original);
-    return original;
-#endif
-#endif
-#ifdef __linux__
     (void)size;
     if (protection == PROTECTION_READ_WRITE_EXECUTE)
         protection = PROT_READ | PROT_WRITE | PROT_EXEC;
@@ -321,21 +255,16 @@ static unsigned long long PlatformProtect(void* address, unsigned long long size
             PROT_READ |
             PROT_EXEC; // unfortunately no way to read the original without parsing /proc/self/maps
 
-    // the page size on the PS4 is 16 KB.
-    // I could have replaced the original with a libkernel posix_getpagesize export, however that
-    // would have required me to add that manually which would make this template repo not very
-    // user-friendly as it'd require everyone to modify their SDK the same way too. I might make a
-    // PR just for this on the OperOrbis repo though sometime
     int pageSize = 16_KB; /* = getpagesize(); */
     unsigned long long pageOffset = (unsigned long long)address % pageSize;
     // C++ doesn't like pointer arithmetic on void*, but it's no issue as it's trivial to fix
     address = (void*)((u8*)address - pageOffset);
 
-    int status = mprotect(address, pageSize, protection);
-    assert(status == 0);
+    // int status = mprotect(address, pageSize, protection);
+    int status = sceKernelMprotect(address, pageSize, protection);
+    ASSERT(status == 0);
 
     return protection;
-#endif
 }
 
 #define CREATE_JUMP(name, targetAddress)                                                           \
@@ -349,13 +278,17 @@ static unsigned long long PlatformProtect(void* address, unsigned long long size
  * \return Non-zero when successful, zero when fail
  */
 static int EnableHook(HookInformation* information) {
-    if (information->Enabled)
+    if (information->Enabled) {
+        LOG_WARNING("HookInformation is already enabled");
         return 1;
+    }
 
     const int bufferSize = sizeof(JUMP_CODE) + information->BytesToCopy;
     unsigned char* buffer = (unsigned char*)PlatformAllocate(bufferSize);
-    if (!buffer)
+    if (!buffer) {
+        LOG_ERROR("Platform allocation failed");
         return 0;
+    }
 
     information->Trampoline = buffer;
     MemoryCopy(buffer, information->OriginalBuffer, information->BytesToCopy);
