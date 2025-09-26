@@ -13,7 +13,6 @@
 void assert_fail_impl();
 [[noreturn]] void unreachable_impl();
 
-
 #ifdef _MSC_VER
 #define SHAD_NO_INLINE __declspec(noinline)
 #else
@@ -23,7 +22,7 @@ void assert_fail_impl();
 #define ASSERT(_a_)                                                                                \
     ([&]() SHAD_NO_INLINE {                                                                        \
         if (!(_a_)) [[unlikely]] {                                                                 \
-            std::cout << "Assertion Failed!\n";                                                    \
+            LOG_CRITICAL("Assertion failed!");                                                     \
             assert_fail_impl();                                                                    \
         }                                                                                          \
     }())
@@ -31,20 +30,20 @@ void assert_fail_impl();
 #define ASSERT_MSG(_a_, ...)                                                                       \
     ([&]() SHAD_NO_INLINE {                                                                        \
         if (!(_a_)) [[unlikely]] {                                                                 \
-            std::cout << "Assertion Failed!\n";                                                    \
+            LOG_CRITICAL("Assertion failed!!\n" __VA_ARGS__);                                      \
             assert_fail_impl();                                                                    \
         }                                                                                          \
     }())
 
 #define UNREACHABLE()                                                                              \
     do {                                                                                           \
-        std::cout << "Assertion Failed!\n";                                                        \
+        LOG_CRITICAL("Unreachable code!");                                                         \
         unreachable_impl();                                                                        \
     } while (0)
 
 #define UNREACHABLE_MSG(...)                                                                       \
     do {                                                                                           \
-        std::cout << "Assertion Failed!\n";                                                        \
+        LOG_CRITICAL("Unreachable code!\n" __VA_ARGS__);                                           \
         unreachable_impl();                                                                        \
     } while (0)
 
