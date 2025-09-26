@@ -1,6 +1,8 @@
 #ifndef LIGHT_HOOK
 #define LIGHT_HOOK
 
+#define USE_DMEM 0
+
 /*
  * LightHook
  * webpage: https://tulach.cc
@@ -208,7 +210,7 @@ static HookInformation CreateHook(void* originalFunction, void* targetFunction) 
  * \return Pointer to allocated memory region
  */
 static void* PlatformAllocate(const u64 size) {
-    // return mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+#if USE_DMEM
     s64 p_addr = 0, *v_addr = nullptr;
     u64 mod = size % 16_KB;
     u64 aligned_size = size - mod + ((mod == 0) ? 0 : 16_KB);
@@ -218,6 +220,9 @@ static void* PlatformAllocate(const u64 size) {
 
     LOG_INFO("PlatformAllocate returned physical address {}, virtual address {}", p_addr, fmt::ptr(v_addr));
     return (void*)v_addr;
+#else
+    return mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+#endif
 }
 
 /**
