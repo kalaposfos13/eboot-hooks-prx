@@ -5,11 +5,11 @@ OUTDIR      ?= out
 ROOT := .
 
 CFLAGS   = -fPIC -funwind-tables --target=x86_64-pc-freebsd12-elf -I"$(OO_TOOLCHAIN)/include" -Isrc
-CXXFLAGS = $(CFLAGS) -I"$(OO_TOOLCHAIN)/include/c++/v1"
+CXXFLAGS = $(CFLAGS) -I"$(OO_TOOLCHAIN)/include/c++/v1" -Wno-missing-declarations
 LDFLAGS  = -pie --script "$(OO_TOOLCHAIN)/link.x" --eh-frame-hdr -L"$(OO_TOOLCHAIN)/lib"
 LIBS     = -lc -lkernel -lc++
 
-STUBFLAGS = -ffreestanding -nostdlib -fno-builtin -fPIC
+STUBFLAGS = -ffreestanding -nostdlib -fno-builtin -fPIC -Wno-missing-declarations
 STUB_TARGET = x86_64-pc-linux-gnu
 
 SRC_CPP := $(shell find src -name "*.cpp")
