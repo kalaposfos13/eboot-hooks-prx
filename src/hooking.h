@@ -14,9 +14,9 @@
     do {                                                                                           \
         HOOK_INIT_VAL(name) = CreateHook((void*)(base_addr + addr), (void*)name);                  \
         if (!EnableHook(&HOOK_INIT_VAL(name))) {                                                   \
-            LOG_ERROR("addr {:#x} failed to hook\n", (base_addr + addr));                          \
+            LOG_ERROR("addr {:#x} failed to hook", (base_addr + addr));                          \
             return false;                                                                          \
         }                                                                                          \
-        LOG_INFO("addr {:#x} hooked\n", (base_addr + addr));                                       \
+        LOG_INFO("addr {:#x} hooked", (base_addr + addr));                                       \
     } while (0);
 #define CONTINUE(name, type, ...) ((type)(info_##name.Trampoline))(__VA_ARGS__);
